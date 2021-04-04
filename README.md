@@ -1,1 +1,1 @@
-# setudl
+Powershell Core 7
