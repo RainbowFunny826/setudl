@@ -1,0 +1,162 @@
+Function psExit {Stop-Process -Name "pwsh"}
+$OS = [Environment]::OSVersion.Platform
+if ($OS -eq "Win32NT") {
+chcp 65001
+Write-Output "你的OS为:$OS"
+Write-Host '此脚本因编码原因 无法使用Windows Powershell运行 请确认你使用的是Powershell Core 7' -ForegroundColor Red
+} else {Write-Output "你的OS为:$OS"}
+$powershell_path = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location $powershell_path
+$json_value = ('
+{
+    "setuapi": "",
+    "setupath": "",
+    "custom": "",
+    "addon":
+[
+ {
+ "auto":"false",
+ "image":"",
+ "count":"",
+ "keyword":"",
+ "more":""
+  }
+ ]
+}
+')
+$testforapikey = (Test-Path "config.json")
+if ($testforapikey) {
+Write-Output "成功读取配置文件"
+$powershell_jsonvalue=(Get-Content "config.json") | ConvertFrom-Json
+$setu_api = $powershell_jsonvalue.setuapi
+$setu_path = $powershell_jsonvalue.setupath
+$setu_tag = $powershell_jsonvalue.setutag
+} else {
+"$powershell_jsonvalue" | Out-File config.json
+Write-Output "配置文件添加完成"
+Write-Output "请填写完成配置后继续启动..."
+pause
+psExit
+}
+if ($powershell_jsonvalue.addon.auto -eq "true") {Write-Output "Auto模式已开启 将会自动完成下载任务"
+if ($setu_api) {} else {
+Write-Output "没有API 无法执行Auto模式!"
+pause
+psExit
+}
+$powershell_jsonvalue_image = $powershell_jsonvalue.addon.image
+$powershell_jsonvalue_count = $powershell_jsonvalue.addon.count
+$powershell_jsonvalue_keyword = $powershell_jsonvalue.addon.keyword
+$powershell_jsonvalue_more = $powershell_jsonvalue.addon.more
+if ($powershell_jsonvalue.addon.image) {Write-Output "设置份数为 $powershell_jsonvalue_image"} else {
+Write-Output "没有份数! 停止运行"
+pause
+psExit
+}
+if ($powershell_jsonvalue.addon.count) {Write-Output "设置图数为 $powershell_jsonvalue_count"} else {
+Write-Output "没有图数! 停止运行"
+pause
+psExit
+}
+if ($powershell_jsonvalue.addon.keyword) {Write-Output "设置搜索为 $powershell_jsonvalue_keyword"} else {}
+if ($powershell_jsonvalue.addon.more) {Write-Output "设置扩展条件为 $powershell_jsonvalue_more"} else {}
+$setu_image = $powershell_jsonvalue.addon.image
+$setu_count = $powershell_jsonvalue.addon.count
+$setu_keyword = $powershell_jsonvalue.addon.keyword
+$setu_other = $powershell_jsonvalue.addon.more
+$setu_image_frame = $setu_count-1
+for ($i=1; $i -le $setu_image; $i++) {
+$setu_image_count = $i
+$ProgressPreference = 'SilentlyContinue'
+Write-Output "目前是第 $i 份图"
+Write-Output "正在从 https://api.lolicon.app/setu/?apikey=$setu_api&num=$setu_count&keyword=$setu_word&$setu_other 获取数据"
+$setu_json = Invoke-WebRequest -Uri "https://api.lolicon.app/setu/?apikey=$setu_api&num=$setu_count&keyword=$setu_word&$setu_other"
+$setu_api_value = ($setu_json.Content) | ConvertFrom-Json
+$setu_api_code = $setu_api_value.code
+$setu_api_quota = $setu_api_value.quota
+$setu_api_count = $setu_api_value.count
+$setu_api_pid = $setu_api_value.data.pid
+$setu_api_p = $setu_api_value.data.p
+$setu_api_uid = $setu_api_value.data.uid
+$setu_api_title = $setu_api_value.data.title
+$setu_api_author = $setu_api_value.data.author
+$setu_api_url = $setu_api_value.data.url
+$setu_api_r18 = $setu_api_value.data.r18
+$setu_api_tags = $setu_api_value.data.tags
+$setu_api_p_i = $setu_api_p + " 1"
+Write-Output "剩余使用数:$setu_api_quota"
+for ($a=0; $a -le $setu_image_frame; $a++) {
+$setu_image_frame_count = $a+1
+Write-Output "目前为第 $setu_image_count 份中的第 $setu_image_frame_count 张"
+$setu_api_url_a = Write-Output "$setu_api_url"
+$setu_api_pid_a = Write-Output "$setu_api_pid"
+$setu_api_p_a = Write-Output "$setu_api_p_i"
+$setu_api_url_count = ($setu_api_url_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+$setu_api_pid_count = ($setu_api_pid_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+$setu_api_p_count = ($setu_api_p_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+Write-Output "Url:$setu_api_url_count"
+Write-Output "Pid:$setu_api_pid_count"
+Write-Output "P:$setu_api_p_count"
+$powershell_filename = "$setu_api_pid_count" + "_" + "$setu_api_p_count" + ".png"
+$powershell_savefile = "$setu_path" + "/" + "$powershell_filename"
+Invoke-WebRequest -Uri "$setu_api_url_count" -OutFile "$powershell_savefile"
+}
+}
+pause
+psExit
+}
+if ($setu_api) {
+Write-Output "已检测到API,开放所有功能 API:$setu_api"
+$setu_api_image_count = 300
+} else {
+Write-output "未检测到API,将强制次数为1"
+$setu_count = 1
+$setu_api_image_count = 10
+}
+if ($setu_path) {Write-Output "保存路径:$setu_path"} else {
+$setu_path = $powershell_path
+Write-Output "将会保存到:$setu_path"
+}
+$setu_image = Read-Host "份数(最高次数:$setu_api_image_count)"
+if ($setu_count -eq "1") {Write-Output "没有API 自动跳过单次数量"} else {$setu_count = Read-Host "单次数量(最高次数:10)"}
+$setu_keyword = Read-Host "在API内搜索"
+$setu_other = Read-Host "其他内容"
+$setu_image_frame = $setu_count-1
+for ($i=1; $i -le $setu_image; $i++) {
+$setu_image_count = $i
+$ProgressPreference = 'SilentlyContinue'
+Write-Output "目前是第 $i 份图"
+Write-Output "正在从 https://api.lolicon.app/setu/?apikey=$setu_api&num=$setu_count&keyword=$setu_keyword&$setu_other 获取数据"
+$setu_json = Invoke-WebRequest -Uri "https://api.lolicon.app/setu/?apikey=$setu_api&num=$setu_count&keyword=$setu_keyword&$setu_other"
+$setu_api_value = ($setu_json.Content) | ConvertFrom-Json
+$setu_api_code = $setu_api_value.code
+$setu_api_quota = $setu_api_value.quota
+$setu_api_count = $setu_api_value.count
+$setu_api_pid = $setu_api_value.data.pid
+$setu_api_p = $setu_api_value.data.p
+$setu_api_uid = $setu_api_value.data.uid
+$setu_api_title = $setu_api_value.data.title
+$setu_api_author = $setu_api_value.data.author
+$setu_api_url = $setu_api_value.data.url
+$setu_api_r18 = $setu_api_value.data.r18
+$setu_api_tags = $setu_api_value.data.tags
+$setu_api_p_i = $setu_api_p + " 1"
+Write-Output "剩余使用数:$setu_api_quota"
+for ($a=0; $a -le $setu_image_frame; $a++) {
+$setu_image_frame_count = $a+1
+Write-Output "目前为第 $setu_image_count 份中的第 $setu_image_frame_count 张"
+$setu_api_url_a = Write-Output "$setu_api_url"
+$setu_api_pid_a = Write-Output "$setu_api_pid"
+$setu_api_p_a = Write-Output "$setu_api_p_i"
+$setu_api_url_count = ($setu_api_url_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+$setu_api_pid_count = ($setu_api_pid_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+$setu_api_p_count = ($setu_api_p_a | ForEach-Object { (-split $_)[$a] -join ' ' })
+Write-Output "Url:$setu_api_url_count"
+Write-Output "Pid:$setu_api_pid_count"
+Write-Output "P:$setu_api_p_count"
+$powershell_filename = "$setu_api_pid_count" + "_" + "$setu_api_p_count" + ".png"
+$powershell_savefile = "$setu_path" + "/" + "$powershell_filename"
+Invoke-WebRequest -Uri "$setu_api_url_count" -OutFile "$powershell_savefile"
+}
+}
+pause
